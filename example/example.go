@@ -2,24 +2,24 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cchirag/matcha"
 )
 
-type button struct {
-	Text string
+type header struct {
+	content string
 }
 
-func Button(text string) *button {
-	return &button{Text: text}
-}
-
-func (b *button) Render(ctx *matcha.Context) matcha.Component {
-	return matcha.Text("Hello\nworld")
+func (h *header) Render(ctx *matcha.Context) matcha.Component {
+	count, setCount := matcha.UseState(ctx, 0)
+	setCount(func(i int) int { return i + 1 })
+	text := strconv.Itoa(count)
+	return matcha.Text(text, matcha.NewStyle())
 }
 
 func main() {
-	app := matcha.NewApp(Button("Hello"))
+	app := matcha.NewApp(&header{})
 
 	if err := app.Render(); err != nil {
 		fmt.Println(err.Error())

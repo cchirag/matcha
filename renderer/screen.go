@@ -49,10 +49,20 @@ func NewScreen(ctx context.Context) (*Screen, error) {
 	return &Screen{screen: screen, ctx: ctx, eventChannel: make(chan tcell.Event, 10)}, nil
 }
 
+func (s *Screen) TCellScreen() tcell.Screen {
+	return s.screen
+}
+
 func (s *Screen) Initialize() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.screen.Init()
+}
+
+func (s *Screen) Fini() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.screen.Fini()
 }
 
 func (s *Screen) SetScreenMode(mode ScreenMode) {

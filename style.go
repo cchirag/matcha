@@ -1,11 +1,60 @@
 package matcha
 
-import "github.com/cchirag/matcha/style"
+type Style struct {
+	bold      bool
+	italics   bool
+	underline bool
+	fgcolor   Color
+	bgcolor   Color
+}
 
-type (
-	Style = style.Style
-)
+func (s *Style) Italics(value bool) *Style {
+	s.italics = value
+	return s
+}
 
-func NewStyle() Style {
-	return Style{}
+func (s *Style) GetItalice() bool {
+	return s.italics
+}
+
+func (s *Style) Bold(value bool) *Style {
+	s.bold = value
+	return s
+}
+
+func (s *Style) GetBold() bool {
+	return s.bold
+}
+
+func (s *Style) Underline(value bool) *Style {
+	s.underline = value
+	return s
+}
+
+func (s *Style) GetUnderline() bool {
+	return s.underline
+}
+
+func (s *Style) FgColor(color Color) *Style {
+	s.fgcolor = color
+	return s
+}
+
+func (s *Style) GetFgColor() Color {
+	return s.fgcolor
+}
+
+func (s *Style) BgColor(color Color) *Style {
+	s.bgcolor = color
+	return s
+}
+
+func (s *Style) GetBgColor() Color {
+	return s.bgcolor
+}
+
+func NewStyle() *Style {
+	return &Style{
+		fgcolor: NewColor("#da3e52", 100, ColorRed),
+	}
 }
