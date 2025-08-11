@@ -15,14 +15,16 @@ func newThrottler(fps int) *throttler {
 		ch:     make(chan struct{}, 1),
 	}
 
-	go func(ticker *time.Ticker, ch chan<- struct{}) {
-		for range ticker.C {
-			select {
-			case ch <- struct{}{}:
-			default:
-			}
-		}
-	}(throttler.ticker, throttler.ch)
+	throttler.ch <- struct{}{}
+
+	// go func(ticker *time.Ticker, ch chan<- struct{}) {
+	// 	for range ticker.C {
+	// 		select {
+	// 		case ch <- struct{}{}:
+	// 		default:
+	// 		}
+	// 	}
+	// }(throttler.ticker, throttler.ch)
 	return throttler
 }
 

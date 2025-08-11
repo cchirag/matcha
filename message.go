@@ -14,3 +14,7 @@ type (
 	MessagePaste     = core.MessagePaste
 	MessageTime      = core.MessageTime
 )
+
+type messageEntry struct {
+	action func(message Message)
+}

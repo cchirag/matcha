@@ -1,54 +1,86 @@
 package matcha
 
 import (
-	"context"
-	"time"
+	"log"
+	"os"
 
-	"github.com/cchirag/matcha/renderer"
 	"github.com/gdamore/tcell/v2"
 )
 
+type channels struct {
+	event  chan tcell.Event
+	tree   chan *node
+	quit   chan struct{}
+	render chan struct{}
+}
+
+type managers struct {
+	focus *focusManager
+	event *eventManager
+}
+
 type App struct {
-	root      Component
-	store     *store
-	throttler *throttler
+	root     Component
+	screen   tcell.Screen
+	channels *channels
+	managers *managers
 }
 
 func NewApp(component Component) *App {
-	return &App{root: component, store: newStore(), throttler: newThrottler(30)}
+	return &App{
+		root: component,
+		channels: &channels{
+			event:  make(chan tcell.Event, 1),
+			tree:   make(chan *node, 1),
+			quit:   make(chan struct{}),
+			render: make(chan struct{}, 10),
+		},
+		managers: &managers{
+			focus: newFocusManager(),
+			event: newEventManager(),
+		},
+	}
 }
 
 func (a *App) Render() error {
-	screen, err := renderer.NewScreen(context.Background())
+	logFile, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer logFile.Close()
+
+	// Set log output to file
+	log.SetOutput(logFile)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	screen, err := tcell.NewScreen()
 	if err != nil {
 		return err
 	}
 	defer screen.Fini()
-
-	if err := screen.Initialize(); err != nil {
+	a.screen = screen
+	if err := screen.Init(); err != nil {
 		return err
 	}
 
-	go a.handleRender(screen)
+	go screen.ChannelEvents(a.channels.event, a.channels.quit)
 
-	go a.handleEvent()
+	// Handle messages
+	go dispatch(a)
 
-	time.Sleep(time.Second * 10)
+	go build(a, 10)
+
+	a.channels.render <- struct{}{}
+
+	<-a.channels.quit
 
 	return nil
 }
 
-func (a *App) handleRender(screen *renderer.Screen) {
-	for range a.throttler.channel() {
-		tree := a.build(a.root, "root")
-		box := a.parcel(tree, 0, 0)
-		for i, row := range box.grid {
-			for j, char := range row {
-				screen.WriteContent(j, i, char.ch, tcell.StyleDefault)
-			}
-		}
-		screen.Show()
+func (a *App) newContext(id string) *Context {
+	return &Context{
+		id:       id,
+		channels: a.channels,
+		managers: a.managers,
 	}
 }
-
-func (a *App) handleEvent() {}

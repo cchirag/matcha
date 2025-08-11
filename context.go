@@ -1,8 +1,16 @@
 package matcha
 
+import (
+	"log"
+)
+
 type Context struct {
-	id        string
-	hookIndex int
-	store     *store
-	throttler *throttler
+	id       string
+	channels *channels
+	managers *managers
+}
+
+func (c *Context) Quit() {
+	log.Println("Quitting")
+	c.channels.quit <- struct{}{}
 }
