@@ -2,7 +2,6 @@ package matcha
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -10,7 +9,8 @@ import (
 
 type character struct {
 	ch    rune
-	style *Style
+	comb  []rune
+	style tcell.Style
 }
 
 type box struct {
@@ -26,56 +26,18 @@ type node struct {
 	box       *box
 }
 
-func (n *node) String() string {
-	if n == nil {
-		return "<nil>"
-	}
-	return n.stringWithPrefix("", true)
-}
-
-func (n *node) stringWithPrefix(prefix string, isLast bool) string {
-	var result strings.Builder
-
-	connector := "├── "
-	if isLast {
-		connector = "└── "
-	}
-	if prefix == "" {
-		connector = ""
-	}
-
-	result.WriteString(fmt.Sprintf("%s%s%s (%d children)", prefix, connector, n.id, len(n.children)))
-
-	childPrefix := prefix
-	if prefix != "" {
-		if isLast {
-			childPrefix += "    "
-		} else {
-			childPrefix += "│   "
-		}
-	}
-
-	for i, child := range n.children {
-		result.WriteString("\n")
-		isLastChild := i == len(n.children)-1
-		result.WriteString(child.stringWithPrefix(childPrefix, isLastChild))
-	}
-
-	return result.String()
-}
-
-func build(app *App, bufferSize int) {
+func build(app *App) {
 	buffer := 0
 	ticker := time.NewTicker(time.Second / 24)
 	for {
 		select {
 		case <-app.channels.render:
 			buffer++
-			if buffer >= bufferSize {
+			if buffer >= 10 {
 				tree := walk(app, app.root, "root", nil)
 				app.channels.tree <- tree
 				box := pack(tree, 0, 0)
-				render(app.screen, box)
+				render(app.screen, box, app)
 				buffer = 0
 			}
 
@@ -84,9 +46,11 @@ func build(app *App, bufferSize int) {
 				tree := walk(app, app.root, "root", nil)
 				app.channels.tree <- tree
 				box := pack(tree, 0, 0)
-				render(app.screen, box)
+				render(app.screen, box, app)
 				buffer = 0
 			}
+		case <-app.channels.quit:
+			return
 		}
 	}
 }
@@ -129,74 +93,15 @@ func walk(app *App, component Component, id string, parent *node) *node {
 }
 
 func pack(tree *node, x, y int) *box {
-	box := &box{
-		x:    x,
-		y:    y,
-		grid: make([][]character, 50),
-	}
-
-	for i := range box.grid {
-		box.grid[i] = make([]character, 100)
-	}
-
+	var b *box
 	switch c := tree.component.(type) {
-
 	case *text:
-		row := 0
-		column := 0
-		maxWidth := 0
-
-		for _, r := range c.content {
-			if r == '\n' {
-				column = 0
-				row++
-				continue
-			}
-			box.grid[row][column] = character{ch: r, style: c.style}
-			column++
-			if column > maxWidth {
-				maxWidth = column
-			}
-		}
-
-		box.width = maxWidth
-		box.height = row + 1
-
-	case *column:
-		offsetY := 0
-		maxWidth := 0
-
-		for _, child := range tree.children {
-			childBox := pack(child, x, y+offsetY)
-			box.copyInto(childBox)
-			offsetY += childBox.height
-			if childBox.width > maxWidth {
-				maxWidth = childBox.width
-			}
-		}
-
-		box.width = maxWidth
-		box.height = offsetY
-
-	case *row:
-		offsetX := 0
-		maxHeight := 0
-
-		for _, child := range tree.children {
-			childBox := pack(child, x+offsetX, y)
-			box.copyInto(childBox)
-			offsetX += childBox.width
-			if childBox.height > maxHeight {
-				maxHeight = childBox.height
-			}
-		}
-
-		box.width = offsetX
-		box.height = maxHeight
+		b = toBox(c.content, c.style)
 	}
 
-	tree.box = box
-	return box
+	tree.box = b
+
+	return b
 }
 
 func (b *box) copyInto(child *box) {
@@ -208,11 +113,13 @@ func (b *box) copyInto(child *box) {
 	}
 }
 
-func render(screen tcell.Screen, box *box) {
+func render(screen tcell.Screen, box *box, app *App) {
 	for y, row := range box.grid {
 		for x, column := range row {
-			screen.SetContent(box.x+x, box.y+y, column.ch, nil, tcell.StyleDefault)
+			screen.SetContent(box.x+x, box.y+y, column.ch, column.comb, column.style)
 		}
 	}
 	screen.Show()
+	time.Sleep(time.Second * 2)
+	close(app.channels.quit)
 }

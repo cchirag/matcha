@@ -1,10 +1,9 @@
 package matcha
 
 import (
-	"log"
-	"os"
-
+	"github.com/charmbracelet/lipgloss"
 	"github.com/gdamore/tcell/v2"
+	"github.com/muesli/termenv"
 )
 
 type channels struct {
@@ -32,8 +31,8 @@ func NewApp(component Component) *App {
 		channels: &channels{
 			event:  make(chan tcell.Event, 1),
 			tree:   make(chan *node, 1),
-			quit:   make(chan struct{}),
-			render: make(chan struct{}, 10),
+			quit:   make(chan struct{}, 1),
+			render: make(chan struct{}, 1),
 		},
 		managers: &managers{
 			focus: newFocusManager(),
@@ -43,34 +42,26 @@ func NewApp(component Component) *App {
 }
 
 func (a *App) Render() error {
-	logFile, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		panic(err)
-	}
-	defer logFile.Close()
-
-	// Set log output to file
-	log.SetOutput(logFile)
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
+	lipgloss.SetHasDarkBackground(termenv.HasDarkBackground())
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return err
 	}
 	defer screen.Fini()
+
 	a.screen = screen
+
 	if err := screen.Init(); err != nil {
 		return err
 	}
 
 	go screen.ChannelEvents(a.channels.event, a.channels.quit)
 
-	// Handle messages
 	go dispatch(a)
 
-	go build(a, 10)
-
 	a.channels.render <- struct{}{}
+
+	go build(a)
 
 	<-a.channels.quit
 

@@ -1,9 +1,7 @@
 package matcha
 
 import (
-	"log"
 	"maps"
-	"reflect"
 	"sync"
 
 	"github.com/gdamore/tcell/v2"
@@ -41,16 +39,12 @@ func dispatch(app *App) {
 
 			switch e := event.(type) {
 			case *tcell.EventKey:
-				// Keyboard events start from focus
 				startNode = getNodeWithFocusOrRoot(app, tree)
-
 			case *tcell.EventMouse:
-				// Mouse events start from hit-test result
 				x, y := e.Position()
 				startNode = findDeepestNodeAtPosition(tree, x, y)
 
 			default:
-				// Fallback to root if we don't know what it is
 				startNode = tree
 			}
 
@@ -62,15 +56,10 @@ func dispatch(app *App) {
 			// Bubble up from the starting node
 			for n := startNode; n != nil; n = n.parent {
 				if handler, ok := handlers[n.id]; !ok {
-					log.Println("No handler for: ", reflect.TypeOf(event))
 					continue
 				} else if handled := handler(event); handled {
-					log.Println("handled: ", reflect.TypeOf(event))
 					app.channels.render <- struct{}{}
 					break
-				} else {
-					log.Println("Handler: ", handler(event))
-					log.Println("Not handled: ", reflect.TypeOf(event))
 				}
 			}
 		}
@@ -83,7 +72,6 @@ func findDeepestNodeAtPosition(root *node, x, y int) *node {
 	var visit func(*node)
 	visit = func(n *node) {
 		if pointInBounds(x, y, n.box) {
-			// Found a node containing the point — keep searching children
 			found = n
 			for _, child := range n.children {
 				visit(child)
@@ -95,16 +83,11 @@ func findDeepestNodeAtPosition(root *node, x, y int) *node {
 	return found
 }
 
-// Example bounds check
 func pointInBounds(x, y int, bounds *box) bool {
 	return x >= bounds.x && x < bounds.x+bounds.width &&
 		y >= bounds.y && y < bounds.y+bounds.height
 }
 
-// getNodeWithFocusOrRoot returns the focused node if focus is set and found,
-// otherwise it returns the root node.
-//
-// Thread-safe with respect to focus state.
 func getNodeWithFocusOrRoot(app *App, tree *node) *node {
 	app.managers.focus.mu.Lock()
 	defer app.managers.focus.mu.Unlock()
