@@ -34,7 +34,7 @@ func build(app *App) {
 		case <-app.channels.render:
 			buffer++
 			if buffer >= 10 {
-				tree := walk(app, &rootComponent{child: app.root}, "root", nil)
+				tree := walk(app, app.root, "root", nil)
 				app.channels.tree <- tree
 				box := pack(tree, 0, 0)
 				render(app.screen, box, app)
@@ -65,9 +65,6 @@ func walk(app *App, component Component, id string, parent *node) *node {
 
 	case *text:
 		node.component = c.Render(ctx)
-	case *rootComponent:
-		node.component = c.Render(ctx)
-
 	case *column:
 		for i, child := range c.children {
 			childID := fmt.Sprintf("%s/%d", id, i)
@@ -87,7 +84,7 @@ func walk(app *App, component Component, id string, parent *node) *node {
 	default:
 		rendered := c.Render(ctx)
 		node.component = rendered
-		childNode := walk(app, rendered, id+"/0", parent)
+		childNode := walk(app, rendered, id+"/0", node)
 		node.children = append(node.children, childNode)
 	}
 
@@ -99,10 +96,11 @@ func pack(tree *node, x, y int) *box {
 	switch c := tree.component.(type) {
 	case *text:
 		b = toBox(c.content, c.style)
+	default:
+		b = pack(tree.children[0], x, y)
 	}
 
 	tree.box = b
-
 	return b
 }
 

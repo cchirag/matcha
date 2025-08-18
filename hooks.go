@@ -22,7 +22,10 @@ type hooksManager struct {
 }
 
 func newHooksManager() *hooksManager {
-	return new(hooksManager)
+	return &hooksManager{
+		states: make(map[string]any),
+		memos:  make(map[string][]any),
+	}
 }
 
 // UseState is a state management hook inspired by React's useState.

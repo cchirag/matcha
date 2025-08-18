@@ -62,7 +62,7 @@ func dispatch(app *App) {
 				if handler, ok := handlers[n.id]; !ok {
 					continue
 				} else if h := handler(event); h {
-					app.channels.render <- struct{}{}
+					// app.channels.render <- struct{}{}
 					handled = true
 					break
 				} else {
@@ -76,7 +76,6 @@ func dispatch(app *App) {
 					}
 				}
 			}
-		default:
 		}
 	}
 }
@@ -99,6 +98,9 @@ func findDeepestNodeAtPosition(root *node, x, y int) *node {
 }
 
 func pointInBounds(x, y int, bounds *box) bool {
+	if bounds == nil {
+		return false
+	}
 	return x >= bounds.x && x < bounds.x+bounds.width &&
 		y >= bounds.y && y < bounds.y+bounds.height
 }

@@ -1,8 +1,6 @@
 package matcha
 
 import (
-	"errors"
-
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gdamore/tcell/v2"
 	"github.com/muesli/termenv"
@@ -34,7 +32,7 @@ func NewApp(component Component) *App {
 		root:       component,
 		dimensions: &dimensions{},
 		channels: &channels{
-			event:  make(chan tcell.Event, 1),
+			event:  make(chan tcell.Event, 64),
 			tree:   make(chan *node, 1),
 			quit:   make(chan struct{}, 1),
 			render: make(chan struct{}, 1),
@@ -48,29 +46,37 @@ func NewApp(component Component) *App {
 }
 
 func (a *App) Render() error {
-	defer func() error {
-		if r := recover(); r != nil {
-			return errors.New(r.(string))
-		}
-		return nil
-	}()
 	lipgloss.SetHasDarkBackground(termenv.HasDarkBackground())
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return err
 	}
-	defer screen.Fini()
+
+	defer func() {
+		r := recover()
+		screen.Fini()
+		if r != nil {
+			panic(r)
+		}
+	}()
+
 	a.screen = screen
 	if err := screen.Init(); err != nil {
 		return err
 	}
+	screen.EnableMouse()
+
 	go screen.ChannelEvents(a.channels.event, a.channels.quit)
+
 	go dispatch(a)
+
 	go build(a)
+
 	w, h := screen.Size()
 	if err := screen.PostEvent(tcell.NewEventResize(w, h)); err != nil {
 		panic(err.Error())
 	}
+
 	<-a.channels.quit
 
 	return nil
