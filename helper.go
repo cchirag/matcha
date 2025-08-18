@@ -13,5 +13,6 @@ func Map[T any, K any](slice []T, iterator func(index int, element T) K) []K {
 	for i, e := range slice {
 		output = append(output, iterator(i, e))
 	}
+
 	return output
 }

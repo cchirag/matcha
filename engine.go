@@ -34,7 +34,7 @@ func build(app *App) {
 		case <-app.channels.render:
 			buffer++
 			if buffer >= 10 {
-				tree := walk(app, app.root, "root", nil)
+				tree := walk(app, &rootComponent{child: app.root}, "root", nil)
 				app.channels.tree <- tree
 				box := pack(tree, 0, 0)
 				render(app.screen, box, app)
@@ -64,6 +64,8 @@ func walk(app *App, component Component, id string, parent *node) *node {
 	switch c := component.(type) {
 
 	case *text:
+		node.component = c.Render(ctx)
+	case *rootComponent:
 		node.component = c.Render(ctx)
 
 	case *column:
@@ -120,6 +122,4 @@ func render(screen tcell.Screen, box *box, app *App) {
 		}
 	}
 	screen.Show()
-	time.Sleep(time.Second * 2)
-	close(app.channels.quit)
 }

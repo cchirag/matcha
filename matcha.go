@@ -1,6 +1,8 @@
 package matcha
 
 import (
+	"errors"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gdamore/tcell/v2"
 	"github.com/muesli/termenv"
@@ -16,18 +18,21 @@ type channels struct {
 type managers struct {
 	focus *focusManager
 	event *eventManager
+	hooks *hooksManager
 }
 
 type App struct {
-	root     Component
-	screen   tcell.Screen
-	channels *channels
-	managers *managers
+	root       Component
+	screen     tcell.Screen
+	channels   *channels
+	managers   *managers
+	dimensions *dimensions
 }
 
 func NewApp(component Component) *App {
 	return &App{
-		root: component,
+		root:       component,
+		dimensions: &dimensions{},
 		channels: &channels{
 			event:  make(chan tcell.Event, 1),
 			tree:   make(chan *node, 1),
@@ -37,32 +42,35 @@ func NewApp(component Component) *App {
 		managers: &managers{
 			focus: newFocusManager(),
 			event: newEventManager(),
+			hooks: newHooksManager(),
 		},
 	}
 }
 
 func (a *App) Render() error {
+	defer func() error {
+		if r := recover(); r != nil {
+			return errors.New(r.(string))
+		}
+		return nil
+	}()
 	lipgloss.SetHasDarkBackground(termenv.HasDarkBackground())
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return err
 	}
 	defer screen.Fini()
-
 	a.screen = screen
-
 	if err := screen.Init(); err != nil {
 		return err
 	}
-
 	go screen.ChannelEvents(a.channels.event, a.channels.quit)
-
 	go dispatch(a)
-
-	a.channels.render <- struct{}{}
-
 	go build(a)
-
+	w, h := screen.Size()
+	if err := screen.PostEvent(tcell.NewEventResize(w, h)); err != nil {
+		panic(err.Error())
+	}
 	<-a.channels.quit
 
 	return nil
@@ -70,8 +78,9 @@ func (a *App) Render() error {
 
 func (a *App) newContext(id string) *Context {
 	return &Context{
-		id:       id,
-		channels: a.channels,
-		managers: a.managers,
+		id:         id,
+		channels:   a.channels,
+		managers:   a.managers,
+		dimensions: a.dimensions,
 	}
 }

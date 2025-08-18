@@ -7,8 +7,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func main() {
-	app := matcha.NewApp(matcha.Text("Hello world",
+type Banner struct{}
+
+func (b *Banner) Render(ctx *matcha.Context) matcha.Component {
+	return matcha.Text(fmt.Sprintf("Width: %d - Height: %d", ctx.GetDimensions().Width, ctx.GetDimensions().Height),
 		lipgloss.NewStyle().
 			Height(30).
 			Width(30).
@@ -21,7 +23,11 @@ func main() {
 				Light: "#3C3C3C",
 				Dark:  "#04B575",
 			}),
-	))
+	)
+}
+
+func main() {
+	app := matcha.NewApp(&Banner{})
 
 	if err := app.Render(); err != nil {
 		fmt.Println(err.Error())

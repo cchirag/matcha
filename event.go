@@ -28,22 +28,25 @@ func dispatch(app *App) {
 		select {
 		case t := <-app.channels.tree:
 			tree = t
-		default:
-		}
-		select {
 		case event := <-app.channels.event:
-			if tree == nil {
-				continue
-			}
 			var startNode *node
-
 			switch e := event.(type) {
 			case *tcell.EventKey:
+				if tree == nil {
+					continue
+				}
 				startNode = getNodeWithFocusOrRoot(app, tree)
 			case *tcell.EventMouse:
+				if tree == nil {
+					continue
+				}
 				x, y := e.Position()
 				startNode = findDeepestNodeAtPosition(tree, x, y)
-
+			case *tcell.EventResize:
+				w, h := e.Size()
+				app.dimensions.Width, app.dimensions.Height = w, h
+				app.channels.render <- struct{}{}
+				continue
 			default:
 				startNode = tree
 			}
@@ -54,14 +57,26 @@ func dispatch(app *App) {
 			maps.Copy(handlers, app.managers.event.handlers)
 			app.managers.event.mu.Unlock()
 			// Bubble up from the starting node
+			var handled bool
 			for n := startNode; n != nil; n = n.parent {
 				if handler, ok := handlers[n.id]; !ok {
 					continue
-				} else if handled := handler(event); handled {
+				} else if h := handler(event); h {
 					app.channels.render <- struct{}{}
+					handled = true
 					break
+				} else {
 				}
 			}
+			if !handled {
+				switch e := event.(type) {
+				case *tcell.EventKey:
+					if e.Key() == tcell.KeyCtrlC {
+						close(app.channels.quit)
+					}
+				}
+			}
+		default:
 		}
 	}
 }

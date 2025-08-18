@@ -1,6 +1,8 @@
 package matcha
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+)
 
 type Component interface {
 	Render(ctx *Context) Component
@@ -8,6 +10,16 @@ type Component interface {
 
 type HasKey interface {
 	Key() string
+}
+
+// root
+
+type rootComponent struct {
+	child Component
+}
+
+func (r *rootComponent) Render(ctx *Context) Component {
+	return r.child
 }
 
 // Text
