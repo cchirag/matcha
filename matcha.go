@@ -31,7 +31,6 @@ type App struct {
 	managers   *managers
 	dimensions *dimensions
 	error      error
-	renderer   *renderer
 }
 
 func NewApp(component Component) *App {
@@ -55,14 +54,11 @@ func NewApp(component Component) *App {
 func (a *App) Render() error {
 	logFile, panicFile := a.setupLog()
 
-	// Use a function wrapper to catch panic
 	lipgloss.SetHasDarkBackground(termenv.HasDarkBackground())
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return err
 	}
-
-	// a.renderer = newRenderer(a, screen, 1)
 
 	defer safe(func() {
 		screen.Fini()

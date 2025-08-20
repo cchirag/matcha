@@ -8,6 +8,14 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type node struct {
+	id        string
+	component Component
+	children  []*node
+	parent    *node
+	box       *box
+}
+
 func build(app *App) {
 	buffer := 0
 	ticker := time.NewTicker(time.Second / 24)
