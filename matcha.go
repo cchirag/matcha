@@ -1,6 +1,11 @@
 package matcha
 
 import (
+	"fmt"
+	"log"
+	"os"
+	"runtime/debug"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gdamore/tcell/v2"
 	"github.com/muesli/termenv"
@@ -25,6 +30,8 @@ type App struct {
 	channels   *channels
 	managers   *managers
 	dimensions *dimensions
+	error      error
+	renderer   *renderer
 }
 
 func NewApp(component Component) *App {
@@ -46,25 +53,28 @@ func NewApp(component Component) *App {
 }
 
 func (a *App) Render() error {
+	logFile, panicFile := a.setupLog()
+
+	// Use a function wrapper to catch panic
 	lipgloss.SetHasDarkBackground(termenv.HasDarkBackground())
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		r := recover()
+	// a.renderer = newRenderer(a, screen, 1)
+
+	defer safe(func() {
 		screen.Fini()
-		if r != nil {
-			panic(r)
-		}
-	}()
+		panicFile.Close()
+		logFile.Close()
+	}, panicFile)
 
 	a.screen = screen
 	if err := screen.Init(); err != nil {
 		return err
 	}
-	screen.EnableMouse()
+	screen.EnableMouse(tcell.MouseButtonEvents)
 
 	go screen.ChannelEvents(a.channels.event, a.channels.quit)
 
@@ -79,7 +89,7 @@ func (a *App) Render() error {
 
 	<-a.channels.quit
 
-	return nil
+	return a.error
 }
 
 func (a *App) newContext(id string) *Context {
@@ -89,4 +99,28 @@ func (a *App) newContext(id string) *Context {
 		managers:   a.managers,
 		dimensions: a.dimensions,
 	}
+}
+
+func (a *App) setupLog() (*os.File, *os.File) {
+	logFile, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+	// Set log output to file
+	log.SetOutput(logFile)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	f, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Could not open panic log file:", err)
+		return nil, nil
+	}
+	return logFile, f
+}
+
+func safe(fn func(), panicFile *os.File) {
+	if r := recover(); r != nil {
+		panicFile.Write((debug.Stack()))
+	}
+
+	fn()
 }

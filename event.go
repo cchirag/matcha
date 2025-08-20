@@ -41,7 +41,9 @@ func dispatch(app *App) {
 					continue
 				}
 				x, y := e.Position()
-				startNode = findDeepestNodeAtPosition(tree, x, y)
+				if startNode = findDeepestNodeAtPosition(tree, x, y); startNode == nil {
+					continue
+				}
 			case *tcell.EventResize:
 				w, h := e.Size()
 				app.dimensions.Width, app.dimensions.Height = w, h
@@ -85,7 +87,7 @@ func findDeepestNodeAtPosition(root *node, x, y int) *node {
 
 	var visit func(*node)
 	visit = func(n *node) {
-		if pointInBounds(x, y, n.box) {
+		if n.box.inBound(x, y) {
 			found = n
 			for _, child := range n.children {
 				visit(child)
@@ -95,14 +97,6 @@ func findDeepestNodeAtPosition(root *node, x, y int) *node {
 
 	visit(root)
 	return found
-}
-
-func pointInBounds(x, y int, bounds *box) bool {
-	if bounds == nil {
-		return false
-	}
-	return x >= bounds.x && x < bounds.x+bounds.width &&
-		y >= bounds.y && y < bounds.y+bounds.height
 }
 
 func getNodeWithFocusOrRoot(app *App, tree *node) *node {

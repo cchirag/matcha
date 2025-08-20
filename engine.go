@@ -2,29 +2,11 @@ package matcha
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
-
-type character struct {
-	ch    rune
-	comb  []rune
-	style tcell.Style
-}
-
-type box struct {
-	x, y, height, width int
-	grid                [][]character
-}
-
-type node struct {
-	id        string
-	component Component
-	children  []*node
-	parent    *node
-	box       *box
-}
 
 func build(app *App) {
 	buffer := 0
@@ -37,7 +19,7 @@ func build(app *App) {
 				tree := walk(app, app.root, "root", nil)
 				app.channels.tree <- tree
 				box := pack(tree, 0, 0)
-				render(app.screen, box, app)
+				render(app.screen, box)
 				buffer = 0
 			}
 
@@ -46,7 +28,7 @@ func build(app *App) {
 				tree := walk(app, app.root, "root", nil)
 				app.channels.tree <- tree
 				box := pack(tree, 0, 0)
-				render(app.screen, box, app)
+				render(app.screen, box)
 				buffer = 0
 			}
 		case <-app.channels.quit:
@@ -56,67 +38,59 @@ func build(app *App) {
 }
 
 func walk(app *App, component Component, id string, parent *node) *node {
-	node := &node{
-		id:     id,
-		parent: parent,
+	nodeId := id
+	if hk, ok := component.(HasKey); ok {
+		keys := strings.Split(nodeId, "/")
+		keys[len(keys)-1] = hk.Key()
+		nodeId = strings.Join(keys, "/")
 	}
-	ctx := app.newContext(id)
-	switch c := component.(type) {
 
+	ctx := app.newContext(id)
+
+	if component == nil {
+		return nil
+	}
+
+	rendered := component.Render(ctx)
+	if rendered == nil {
+		return nil
+	}
+
+	node := &node{
+		id:        nodeId,
+		parent:    parent,
+		component: rendered,
+	}
+
+	switch c := node.component.(type) {
 	case *text:
-		node.component = c.Render(ctx)
+		// node.component = c
 	case *column:
 		for i, child := range c.children {
 			childID := fmt.Sprintf("%s/%d", id, i)
-			childNode := walk(app, child, childID, node)
-			node.children = append(node.children, childNode)
+			if childNode := walk(app, child, childID, node); childNode != nil {
+				node.children = append(node.children, childNode)
+			}
 		}
-		node.component = c.Render(ctx)
 
 	case *row:
 		node.component = c
 		for i, child := range c.children {
 			childID := fmt.Sprintf("%s/%d", id, i)
-			childNode := walk(app, child, childID, node)
-			node.children = append(node.children, childNode)
+			if childNode := walk(app, child, childID, node); childNode != nil {
+				node.children = append(node.children, childNode)
+			}
 		}
-		node.component = c.Render(ctx)
 	default:
-		rendered := c.Render(ctx)
-		node.component = rendered
-		childNode := walk(app, rendered, id+"/0", node)
-		node.children = append(node.children, childNode)
+		node = walk(app, node.component, id, parent)
 	}
-
 	return node
 }
 
-func pack(tree *node, x, y int) *box {
-	var b *box
-	switch c := tree.component.(type) {
-	case *text:
-		b = toBox(c.content, c.style)
-	default:
-		b = pack(tree.children[0], x, y)
-	}
-
-	tree.box = b
-	return b
-}
-
-func (b *box) copyInto(child *box) {
-	for row := 0; row < child.height; row++ {
-		for col := 0; col < child.width; col++ {
-			ch := child.grid[row][col]
-			b.grid[row+child.y-b.y][col+child.x-b.x] = ch
-		}
-	}
-}
-
-func render(screen tcell.Screen, box *box, app *App) {
+func render(screen tcell.Screen, box *box) {
 	for y, row := range box.grid {
 		for x, column := range row {
-			screen.SetContent(box.x+x, box.y+y, column.ch, column.comb, column.style)
+			screen.SetContent(x, y, column.primary, column.comb, column.style)
 		}
 	}
 	screen.Show()

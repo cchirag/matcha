@@ -12,6 +12,7 @@ type Banner struct{}
 
 func (b *Banner) Render(ctx *matcha.Context) matcha.Component {
 	count, setCount := matcha.UseState(ctx, 0)
+	_, _, _ = matcha.UseFocus(ctx, "banner")
 	matcha.UseEvent(ctx, func(event tcell.Event) bool {
 		switch e := event.(type) {
 		case *tcell.EventKey:
@@ -59,8 +60,47 @@ func (b *Banner) Render(ctx *matcha.Context) matcha.Component {
 	)
 }
 
+type app struct{}
+
+func (a *app) Render(ctx *matcha.Context) matcha.Component {
+	count, setCount := matcha.UseState(ctx, 0)
+	return matcha.Row([]matcha.Component{
+		matcha.Text(fmt.Sprintf("Count: %d", count), lipgloss.NewStyle().Foreground(lipgloss.Color("#000000")).Background(lipgloss.Color("#FFFFFF"))),
+
+		matcha.Column([]matcha.Component{
+			matcha.Button("Increment", func(event *tcell.EventMouse) bool {
+				if event.Buttons() == tcell.Button1 {
+					setCount(func(i int) int { return i + 1 })
+					return true
+				}
+				return false
+			}, lipgloss.NewStyle().
+				Padding(1, 2).
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#44624a")),
+			),
+
+			matcha.Button("Decrement", func(event *tcell.EventMouse) bool {
+				if event.Buttons() == tcell.Button1 {
+					setCount(func(i int) int { return i - 1 })
+					return true
+				}
+				return false
+			}, lipgloss.NewStyle().
+				Padding(1, 2).
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#44624a"))),
+		}, 2, lipgloss.NewStyle().
+			Background(lipgloss.Color("#FFFFFF"))),
+	}, 2,
+		lipgloss.NewStyle().
+			Background(lipgloss.Color("#ffffff")).
+			Padding(1),
+	)
+}
+
 func main() {
-	app := matcha.NewApp(&Banner{})
+	app := matcha.NewApp(&app{})
 
 	if err := app.Render(); err != nil {
 		fmt.Println(err.Error())
