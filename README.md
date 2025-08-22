@@ -137,5 +137,3 @@ Let’s shape this together.
 [MIT](LICENSE)
 
 ---
-
-Do you want me to also add a **screenshot / GIF** section (showing the counter app in action), or keep the README text-only for now?
